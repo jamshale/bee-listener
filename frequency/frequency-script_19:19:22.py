@@ -54,11 +54,11 @@ total_list = [210.0, 220.0, 230.0, 240.0, 250.0, 260.0, 270.0, 280.0, 290.0, 300
               910.0, 920.0, 930.0, 940.0, 950.0, 960.0, 970.0, 980.0, 990.0, 1000.0, 'classification']
 
 # file 1
-with open("./combo.csv", "a") as f:
+with open("./data/combo.csv", "a") as f:
     writer = csv.writer(f, delimiter=',')
 
     here_path = os.path.dirname(os.path.realpath(__file__))
-    wav_file_name = '2020-05-14-19:19:22.wav'
+    wav_file_name = '../bee-sounds/2020-05-14-19:19:22.wav'
     wave_file_path = os.path.join(here_path, wav_file_name)
     sr, signal = wavfile.read(wave_file_path)
     length = signal.shape[0] / sr
