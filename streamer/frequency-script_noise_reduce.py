@@ -15,13 +15,14 @@ import time
 import sys
 import signal
 
+TIMESTAMP = str(calendar.timegm(time.gmtime()))
 CHUNK = 4410
 RATE = 44100
 CHANNELS = 1
-OUTPUT_WAV_FILE = 'stream_' + str(calendar.timegm(time.gmtime())) + '.wav'
-OUTPUT_PEAK_FILE = './data/streamer.csv'
+OUTPUT_WAV_FILE = './streams/stream_' + TIMESTAMP + '.wav'
+OUTPUT_PEAK_FILE = './peaks/peaks_' + TIMESTAMP + '.csv'
 NOISE_FILE = './noise.wav'
-SLOPE = 5
+SLOPE = 10  # Used to control the peak detection sensitivity
 
 global AUDIO
 
