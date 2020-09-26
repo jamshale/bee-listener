@@ -23,7 +23,7 @@ CHANNELS = 1
 OUTPUT_WAV_FILE = './streams/stream_' + TIMESTAMP + '.wav'
 OUTPUT_PEAK_FILE = './peaks/peaks_' + TIMESTAMP + '.csv'
 NOISE_FILE = './noise.wav'
-SLOPE = 10  # Used to control the peak detection sensitivity
+SLOPE = 2  # Used to control the peak detection sensitivity
 
 global AUDIO
 
@@ -136,10 +136,21 @@ def noise_reduce(second):
     process_second(reduced_second)
 
 
-stream = p.open(format=pyaudio.paInt16, channels=1, rate=RATE, input=True,
+stream = p.open(format=pyaudio.paInt16, channels=CHANNELS, rate=RATE, input=True,
                 input_device_index=6,
                 frames_per_buffer=CHUNK)
 
 #
 # Collect 1 sec
-#XCVV        i = 0
+#
+i = 0
+second = np.zeros([10, CHUNK])
+while True:
+    data = np.frombuffer(stream.read(
+        CHUNK, exception_on_overflow=False), dtype=np.int16)
+    second[i] = data / 1.0
+    i += 1
+    if i % 10 == 0:
+        noise_reduce(second)
+        second = np.zeros([10, CHUNK])
+        i = 0
