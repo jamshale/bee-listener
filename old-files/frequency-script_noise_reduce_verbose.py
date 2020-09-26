@@ -9,13 +9,21 @@ import wave
 import wavio
 import noisereduce as nr
 import math as math
+import datetime
+import calendar
+import time
+import sys
+import signal
+from concurrent.futures import thread
 
-
+TIMESTAMP = str(calendar.timegm(time.gmtime()))
 CHUNK = 4410
 RATE = 44100
 CHANNELS = 1
-OUTPUT_FILE = "stream.wav"
-SLOPE = 5
+OUTPUT_WAV_FILE = './streams/stream_' + TIMESTAMP + '.wav'
+OUTPUT_PEAK_FILE = './peaks/peaks_' + TIMESTAMP + '.csv'
+NOISE_FILE = './noise.wav'
+SLOPE = 5  # Used to control the peak detection sensitivity
 
 total_list = [210.0, 220.0, 230.0, 240.0, 250.0, 260.0, 270.0, 280.0, 290.0, 300.0,
               310.0, 320.0, 330.0, 340.0, 350.0, 360.0, 370.0, 380.0, 390.0, 400.0,
@@ -27,8 +35,8 @@ total_list = [210.0, 220.0, 230.0, 240.0, 250.0, 260.0, 270.0, 280.0, 290.0, 300
               910.0, 920.0, 930.0, 940.0, 950.0, 960.0, 970.0, 980.0, 990.0, 1000.0, 'classification']
 
 
-noise_rate, noise_data = wavfile.read('./noise.wav')
-noise_data = noise_data * 1.0
+noise_rate, noise_data = wavfile.read(NOISE_FILE)
+noise_data = noise_data / 1.0
 
 p = pyaudio.PyAudio()
 
@@ -73,7 +81,7 @@ def write_to_file(writer, list):
 
 
 def process_second(second):
-    with open("./data/streamer.csv", "a") as f:
+    with open(OUTPUT_PEAK_FILE, "a") as f:
         writer = csv.writer(f, delimiter=',')
         for i in range(10):
             peak_list = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -89,11 +97,11 @@ def process_second(second):
             # print(second[i*CHUNK:(i+1)*CHUNK])
             t = np.arange(len(data)) / float(RATE)
 
-            # plt.figure()
-            # plt.subplot(2, 1, 1)
-            # plt.plot(t, second[i*CHUNK:(i+1)*CHUNK])
-            # plt.xlabel('t')
-            # plt.ylabel('y')
+            plt.figure()
+            plt.subplot(2, 1, 1)
+            plt.plot(t, second[i*CHUNK:(i+1)*CHUNK])
+            plt.xlabel('t')
+            plt.ylabel('y')
 
             frq, X = frequency_sepectrum(data, RATE)
 
@@ -107,15 +115,15 @@ def process_second(second):
                         peak_list[index] = 1
             write_to_file(writer, peak_list)
 
-            # plt.subplot(2, 1, 2)
-            # plt.xlim(right=1000)
-            # plt.xlim(left=20)
-            # plt.plot(frq, X+1, 'b')
-            # left, right = plt.xlim()
-            # plt.xlabel('Freq (Hz)')
-            # plt.ylabel('|X(freq)|')
-            # plt.tight_layout()
-            # plt.show()
+            plt.subplot(2, 1, 2)
+            plt.xlim(right=1000)
+            plt.xlim(left=20)
+            plt.plot(frq, X+1, 'b')
+            left, right = plt.xlim()
+            plt.xlabel('Freq (Hz)')
+            plt.ylabel('|X(freq)|')
+            plt.tight_layout()
+            plt.show()
 
 
 def noise_reduce(second):
@@ -135,7 +143,7 @@ second = np.zeros([10, CHUNK])
 while True:
     data = np.frombuffer(stream.read(
         CHUNK, exception_on_overflow=False), dtype=np.int16)
-    second[i] = data * 1.0
+    second[i] = data / 1.0
     i += 1
     if i % 10 == 0:
         noise_reduce(second)

@@ -22,7 +22,7 @@ from pickle import dump
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
-filename = "./data/combo.csv"
+filename = "./peaks/mix.csv"
 total_list = [210.0, 220.0, 230.0, 240.0, 250.0, 260.0, 270.0, 280.0, 290.0, 300.0,
               310.0, 320.0, 330.0, 340.0, 350.0, 360.0, 370.0, 380.0, 390.0, 400.0,
               410.0, 420.0, 430.0, 440.0, 450.0, 460.0, 470.0, 480.0, 490.0, 500.0,
@@ -46,11 +46,18 @@ X_train, X_validation, Y_train, Y_validation = train_test_split(X, Y,
                                                                 test_size=validation_size, random_state=seed)
 
 # decision tree classifier
-alg = DecisionTreeClassifier()
-alg.fit(X_train, Y_train)
-predictions = alg.predict(X_validation)
+dtc = DecisionTreeClassifier()
+dtc.fit(X_train, Y_train)
+predictions = dtc.predict(X_validation)
 print(accuracy_score(Y_validation, predictions))
 print(confusion_matrix(Y_validation, predictions))
 print(classification_report(Y_validation, predictions, zero_division=1))
 
-dump(alg, open('./model.sav', 'wb'))
+knn = KNeighborsClassifier(n_neighbors=7)
+knn.fit(X_train, Y_train)
+predictions = knn.predict(X_validation)
+print(accuracy_score(Y_validation, predictions))
+print(confusion_matrix(Y_validation, predictions))
+print(classification_report(Y_validation, predictions, zero_division=1))
+
+dump(dtc, open('./dtc.sav', 'wb'))
