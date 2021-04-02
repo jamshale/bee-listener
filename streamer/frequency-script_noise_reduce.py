@@ -23,7 +23,7 @@ CHANNELS = 1
 OUTPUT_WAV_FILE = './streams/stream_' + TIMESTAMP + '.wav'
 OUTPUT_PEAK_FILE = './peaks/peaks_' + TIMESTAMP + '.csv'
 NOISE_FILE = './noise.wav'
-SLOPE = 2  # Used to control the peak detection sensitivity
+SLOPE = 10  # Used to control the peak detection sensitivity
 
 global AUDIO
 
