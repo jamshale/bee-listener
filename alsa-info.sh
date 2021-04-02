@@ -1,7 +1,7 @@
 #!/bin/bash
 
-SCRIPT_VERSION=0.4.65
-CHANGELOG="http://www.alsa-project.org/alsa-info.sh.changelog"
+SCRIPT_VERSION=0.5.0
+CHANGELOG="https://www.alsa-project.org/alsa-info.sh.changelog"
 
 #################################################################################
 #Copyright (C) 2007 Free Software Foundation.
@@ -45,7 +45,7 @@ update() {
 	test -z "$WGET" -o ! -x "$WGET" && return
 
 	SHFILE=$(mktemp -t alsa-info.XXXXXXXXXX) || exit 1
-	wget -O $SHFILE "http://www.alsa-project.org/alsa-info.sh" >/dev/null 2>&1
+	wget -O $SHFILE "https://www.alsa-project.org/alsa-info.sh" >/dev/null 2>&1
 	REMOTE_VERSION=$(grep SCRIPT_VERSION $SHFILE | head -n1 | sed 's/.*=//')
 	if [ -s "$SHFILE" -a "$REMOTE_VERSION" != "$SCRIPT_VERSION" ]; then
 		if [[ -n $DIALOG ]]
@@ -233,7 +233,7 @@ withdmesg() {
 	echo "!!ALSA/HDA dmesg" >> $FILE
 	echo "!!--------------" >> $FILE
 	echo "" >> $FILE
-	dmesg | grep -C1 -E 'ALSA|HDA|HDMI|snd[_-]|sound|hda.codec|hda.intel' >> $FILE
+	dmesg | grep -C1 -E 'ALSA|HDA|HDMI|snd[_-]|sound|audio|hda.codec|hda.intel' >> $FILE
 	echo "" >> $FILE
 	echo "" >> $FILE
 }
@@ -425,9 +425,11 @@ get_alsa_library_version
 ALSA_UTILS_VERSION=$(amixer -v | awk '{ print $3 }')
 
 ESDINST=$(command -v esd)
+PWINST=$(command -v pipewire)
 PAINST=$(command -v pulseaudio)
 ARTSINST=$(command -v artsd)
 JACKINST=$(command -v jackd)
+JACK2INST=$(command -v jackdbus)
 ROARINST=$(command -v roard)
 DMIDECODE=$(command -v dmidecode)
 
@@ -438,6 +440,7 @@ if [ -d /sys/class/dmi/id ]; then
     DMI_SYSTEM_PRODUCT_NAME=$(cat /sys/class/dmi/id/product_name 2>/dev/null)
     DMI_SYSTEM_PRODUCT_VERSION=$(cat /sys/class/dmi/id/product_version 2>/dev/null)
     DMI_SYSTEM_FIRMWARE_VERSION=$(cat /sys/class/dmi/id/bios_version 2>/dev/null)
+    DMI_SYSTEM_SKU=$(cat /sys/class/dmi/id/product_sku 2>/dev/null)
     DMI_BOARD_VENDOR=$(cat /sys/class/dmi/id/board_vendor 2>/dev/null)
     DMI_BOARD_NAME=$(cat /sys/class/dmi/id/board_name 2>/dev/null)
 elif [ -x $DMIDECODE ]; then
@@ -445,6 +448,7 @@ elif [ -x $DMIDECODE ]; then
     DMI_SYSTEM_PRODUCT_NAME=$($DMIDECODE -s system-product-name 2>/dev/null)
     DMI_SYSTEM_PRODUCT_VERSION=$($DMIDECODE -s system-version 2>/dev/null)
     DMI_SYSTEM_FIRMWARE_VERSION=$($DMIDECODE -s bios-version 2>/dev/null)
+    DMI_SYSTEM_SKU=$($DMIDECODE -s system-sku-number 2>/dev/null)
     DMI_BOARD_VENDOR=$($DMIDECODE -s baseboard-manufacturer 2>/dev/null)
     DMI_BOARD_NAME=$($DMIDECODE -s baseboard-product-name 2>/dev/null)
 fi
@@ -459,7 +463,7 @@ if [ -d /sys/bus/acpi/devices ]; then
     done
 fi
 
-cat /proc/asound/modules 2>/dev/null | awk '{ print $2 }' > $TEMPDIR/alsamodules.tmp
+awk '{ print $2 " (card " $1 ")" }' < /proc/asound/modules > $TEMPDIR/alsamodules.tmp 2> /dev/null
 cat /proc/asound/cards > $TEMPDIR/alsacards.tmp
 if [[ ! -z "$LSPCI" ]]; then
 	for class in 0401 0402 0403; do
@@ -473,6 +477,18 @@ cat /proc/asound/card*/codec\#* > $TEMPDIR/alsa-hda-intel.tmp 2> /dev/null
 #Check for AC97 cards codec
 cat /proc/asound/card*/codec97\#0/ac97\#0-0 > $TEMPDIR/alsa-ac97.tmp 2> /dev/null
 cat /proc/asound/card*/codec97\#0/ac97\#0-0+regs > $TEMPDIR/alsa-ac97-regs.tmp 2> /dev/null
+
+#Check for USB descriptors
+if [ -x /usr/bin/lsusb ]; then
+    for f in /proc/asound/card[0-9]*/usbbus; do
+	test -f "$f" || continue
+	id=$(sed 's@/@:@' $f)
+	lsusb -v -s $id >> $TEMPDIR/lsusb.tmp 2> /dev/null
+    done
+fi
+
+#Check for USB stream setup
+cat /proc/asound/card*/stream[0-9]* > $TEMPDIR/alsa-usbstream.tmp 2> /dev/null
 
 #Check for USB mixer setup
 cat /proc/asound/card*/usbmixer > $TEMPDIR/alsa-usbmixer.tmp 2> /dev/null
@@ -503,6 +519,7 @@ echo "Manufacturer:      $DMI_SYSTEM_MANUFACTURER" >> $FILE
 echo "Product Name:      $DMI_SYSTEM_PRODUCT_NAME" >> $FILE
 echo "Product Version:   $DMI_SYSTEM_PRODUCT_VERSION" >> $FILE
 echo "Firmware Version:  $DMI_SYSTEM_FIRMWARE_VERSION" >> $FILE
+echo "System SKU:        $DMI_SYSTEM_SKU" >> $FILE
 echo "Board Vendor:      $DMI_BOARD_VENDOR" >> $FILE
 echo "Board Name:        $DMI_BOARD_NAME" >> $FILE
 echo "" >> $FILE
@@ -540,6 +557,13 @@ echo "" >> $FILE
 echo "!!Sound Servers on this system" >> $FILE
 echo "!!----------------------------" >> $FILE
 echo "" >> $FILE
+if [[ -n $PWINST ]];then
+[[ $(pgrep '^(.*/)?pipewire$') ]] && PWRUNNING="Yes" || PWRUNNING="No"
+echo "PipeWire:" >> $FILE
+echo "      Installed - Yes ($PWINST)" >> $FILE
+echo "      Running - $PWRUNNING" >> $FILE
+echo "" >> $FILE
+fi
 if [[ -n $PAINST ]];then
 [[ $(pgrep '^(.*/)?pulseaudio$') ]] && PARUNNING="Yes" || PARUNNING="No"
 echo "Pulseaudio:" >> $FILE
@@ -566,6 +590,13 @@ if [[ -n $JACKINST ]];then
 echo "Jack:" >> $FILE
 echo "      Installed - Yes ($JACKINST)" >> $FILE
 echo "      Running - $JACKRUNNING" >> $FILE
+echo "" >> $FILE
+fi
+if [[ -n $JACK2INST ]];then
+[[ $(pgrep '^(.*/)?jackdbus$') ]] && JACK2RUNNING="Yes" || JACK2RUNNING="No"
+echo "Jack2:" >> $FILE
+echo "      Installed - Yes ($JACK2INST)" >> $FILE
+echo "      Running - $JACK2RUNNING" >> $FILE
 echo "" >> $FILE
 fi
 if [[ -n $ROARINST ]];then
@@ -596,8 +627,7 @@ echo "" >> $FILE
 echo "" >> $FILE
 fi
 
-if [ "$SNDOPTIONS" ]
-then
+if [ "$SNDOPTIONS" ]; then
 echo "!!Modprobe options (Sound related)" >> $FILE
 echo "!!--------------------------------" >> $FILE
 echo "" >> $FILE
@@ -617,6 +647,18 @@ if [ -d "$SYSFS" ]; then
 			value=$(cat $params)
 			echo "$params : $value" | sed 's:.*/::'
 		done >> $FILE
+		echo "" >> $FILE
+	done
+	echo "" >> $FILE
+	echo "!!Sysfs card info" >> $FILE
+	echo "!!---------------" >> $FILE
+	echo "" >> $FILE
+	for cdir in $(echo $SYSFS/class/sound/card*); do
+		echo "!!Card: $cdir" >> $FILE
+		driver=$(readlink -f "$cdir/device/driver")
+		echo "Driver: $driver" >> $FILE
+		echo "Tree:" >> $FILE
+		tree --noreport $cdir -L 2 | sed -e 's/^/\t/g' >> $FILE
 		echo "" >> $FILE
 	done
 	echo "" >> $FILE
@@ -641,6 +683,27 @@ if [ -s "$TEMPDIR/alsa-ac97.tmp" ]; then
         cat $TEMPDIR/alsa-ac97.tmp >> $FILE
         echo "" >> $FILE
         cat $TEMPDIR/alsa-ac97-regs.tmp >> $FILE
+        echo "--endcollapse--" >> $FILE
+	echo "" >> $FILE
+	echo "" >> $FILE
+fi
+
+if [ -s "$TEMPDIR/lsusb.tmp" ]; then
+        echo "!!USB Descriptors" >> $FILE
+        echo "!!---------------" >> $FILE
+        echo "--startcollapse--" >> $FILE
+        cat $TEMPDIR/lsusb.tmp >> $FILE
+        echo "--endcollapse--" >> $FILE
+	echo "" >> $FILE
+	echo "" >> $FILE
+fi
+
+if [ -s "$TEMPDIR/lsusb.tmp" ]; then
+        echo "!!USB Stream information" >> $FILE
+        echo "!!----------------------" >> $FILE
+        echo "--startcollapse--" >> $FILE
+        echo "" >> $FILE
+        cat $TEMPDIR/alsa-usbstream.tmp >> $FILE
         echo "--endcollapse--" >> $FILE
 	echo "" >> $FILE
 	echo "" >> $FILE
@@ -760,7 +823,7 @@ if [ -n "$1" ]; then
 			echo "	--update (check server for script updates)"
 			echo "	--upload (upload contents to remote server)"
 			echo "	--no-upload (do not upload contents to remote server)"
-			echo "	--pastebin (use http://pastebin.ca) as remote server"
+			echo "	--pastebin (use https://pastebin.ca) as remote server"
 			echo "	    instead www.alsa-project.org"
 			echo "	--stdout (print alsa information to standard output"
 			echo "	    instead of a file)"
@@ -789,28 +852,28 @@ if ! wget --help 2>/dev/null | grep -q post-file; then
 		:
 	elif [ -n "$DIALOG" ]; then
 		if [ -z "$PASTEBIN" ]; then
-			dialog --backtitle "$BGTITLE" --msgbox "Could not automatically upload output to http://www.alsa-project.org.\nPossible reasons are:\n\n    1. Couldn't find 'wget' in your PATH\n    2. Your version of wget is less than 1.8.2\n\nPlease manually upload $NFILE to http://www.alsa-project.org/cardinfo-db/ and submit your post." 25 100
+			dialog --backtitle "$BGTITLE" --msgbox "Could not automatically upload output to https://www.alsa-project.org.\nPossible reasons are:\n\n    1. Couldn't find 'wget' in your PATH\n    2. Your version of wget is less than 1.8.2\n\nPlease manually upload $NFILE to https://www.alsa-project.org/cardinfo-db/ and submit your post." 25 100
 		else
-			dialog --backtitle "$BGTITLE" --msgbox "Could not automatically upload output to http://www.pastebin.ca.\nPossible reasons are:\n\n    1. Couldn't find 'wget' in your PATH\n    2. Your version of wget is less than 1.8.2\n\nPlease manually upload $NFILE to http://www.pastebin.ca/upload.php and submit your post." 25 100
+			dialog --backtitle "$BGTITLE" --msgbox "Could not automatically upload output to https://www.pastebin.ca.\nPossible reasons are:\n\n    1. Couldn't find 'wget' in your PATH\n    2. Your version of wget is less than 1.8.2\n\nPlease manually upload $NFILE to https://www.pastebin.ca/upload.php and submit your post." 25 100
 		fi
 	else
 		if [ -z "$PASTEBIN" ]; then
 			echo ""
-			echo "Could not automatically upload output to http://www.alsa-project.org"
+			echo "Could not automatically upload output to https://www.alsa-project.org"
 			echo "Possible reasons are:"
 			echo "    1. Couldn't find 'wget' in your PATH"
 			echo "    2. Your version of wget is less than 1.8.2"
 			echo ""
-			echo "Please manually upload $NFILE to http://www.alsa-project.org/cardinfo-db/ and submit your post."
+			echo "Please manually upload $NFILE to https://www.alsa-project.org/cardinfo-db/ and submit your post."
 			echo ""
 		else
 			echo ""
-			echo "Could not automatically upload output to http://www.pastebin.ca"
+			echo "Could not automatically upload output to https://www.pastebin.ca"
 			echo "Possible reasons are:"
 			echo "    1. Couldn't find 'wget' in your PATH"
 			echo "    2. Your version of wget is less than 1.8.2"
 			echo ""
-			echo "Please manually upload $NFILE to http://www.pastebin.ca/upload.php and submit your post."
+			echo "Please manually upload $NFILE to https://www.pastebin.ca/upload.php and submit your post."
 			echo ""
 		fi
 	fi
@@ -864,9 +927,9 @@ else
 fi
 
 if [[ -z $PASTEBIN ]]; then
-	wget -O - --tries=5 --timeout=60 --post-file=$FILE "http://www.alsa-project.org/cardinfo-db/" &>$TEMPDIR/wget.tmp
+	wget -O - --tries=5 --timeout=60 --post-file=$FILE "https://www.alsa-project.org/cardinfo-db/" &>$TEMPDIR/wget.tmp
 else
-	wget -O - --tries=5 --timeout=60 --post-file=$FILE "http://pastebin.ca/quiet-paste.php?api=$PASTEBINKEY&encrypt=t&encryptpw=blahblah" &>$TEMPDIR/wget.tmp
+	wget -O - --tries=5 --timeout=60 --post-file=$FILE "https://pastebin.ca/quiet-paste.php?api=$PASTEBINKEY&encrypt=t&encryptpw=blahblah" &>$TEMPDIR/wget.tmp
 fi
 
 if [ $? -ne 0 ]; then
@@ -909,7 +972,7 @@ fi # dialog
 if [ -z "$PASTEBIN" ]; then
 	FINAL_URL=$(grep "SUCCESS:" $TEMPDIR/wget.tmp | cut -d ' ' -f 2)
 else
-	FINAL_URL=$(grep "SUCCESS:" $TEMPDIR/wget.tmp | sed -n 's/.*\:\([0-9]\+\).*/http:\/\/pastebin.ca\/\1/p')
+	FINAL_URL=$(grep "SUCCESS:" $TEMPDIR/wget.tmp | sed -n 's/.*\:\([0-9]\+\).*/https:\/\/pastebin.ca\/\1/p')
 fi
 
 # See if tput is available, and use it if it is.
