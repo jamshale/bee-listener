@@ -1,7 +1,6 @@
 scipy
 numpy
 matplotlib
-pyaudio
 wave
 wavio
 noisereduce
