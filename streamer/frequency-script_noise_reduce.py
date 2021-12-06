@@ -20,8 +20,11 @@ OUTPUT_RAW_WAV_FILE = './streams/stream_raw_' + TIMESTAMP + '.wav'
 OUTPUT_REDUCED_WAV_FILE = './streams/stream_reduced_' + TIMESTAMP + '.wav'
 OUTPUT_PEAK_FILE = './peaks/peaks_' + TIMESTAMP + '.csv'
 NOISE_FILE = './noise.wav'
-SLOPE_LOW = 10  # Used to control the peak detection sensitivity
-SLOPE_HIGH = 7
+# Used to control the peak detection sensitivity
+SLOPE_LOW_LOW = 7  
+SLOPE_LOW_HIGH = 7
+SLOPE_HIGH_LOW = 10
+SLOPE_HIGH_HIGH = 10
 
 global RAWAUDIO
 
@@ -110,10 +113,16 @@ def process_second(second):
 
             for j in enumerate(zip(frq, X)):
                 if j[0] > 0:
-                    if 160 <= frq[j[0]] <= 500 and check_peak(X[j[0]-1], frq[j[0]-1], X[j[0]], frq[j[0]], X[j[0]+1], frq[j[0]+1], SLOPE_LOW):
+                    if 160 <= frq[j[0]] <= 370 and check_peak(X[j[0]-1], frq[j[0]-1], X[j[0]], frq[j[0]], X[j[0]+1], frq[j[0]+1], SLOPE_LOW_LOW):
                         index = total_list.index(frq[j[0]])
                         peak_list[index] = 1
-                    elif 510 <= frq[j[0]] <= 1000 and check_peak(X[j[0]-1], frq[j[0]-1], X[j[0]], frq[j[0]], X[j[0]+1], frq[j[0]+1], SLOPE_HIGH):
+                    elif 380 <= frq[j[0]] <= 590 and check_peak(X[j[0]-1], frq[j[0]-1], X[j[0]], frq[j[0]], X[j[0]+1], frq[j[0]+1], SLOPE_LOW_HIGH):
+                        index = total_list.index(frq[j[0]])
+                        peak_list[index] = 1
+                    if 600 <= frq[j[0]] <= 810 and check_peak(X[j[0]-1], frq[j[0]-1], X[j[0]], frq[j[0]], X[j[0]+1], frq[j[0]+1], SLOPE_HIGH_LOW):
+                        index = total_list.index(frq[j[0]])
+                        peak_list[index] = 1
+                    elif 820 <= frq[j[0]] <= 1000 and check_peak(X[j[0]-1], frq[j[0]-1], X[j[0]], frq[j[0]], X[j[0]+1], frq[j[0]+1], SLOPE_HIGH_HIGH):
                         index = total_list.index(frq[j[0]])
                         peak_list[index] = 1
             write_to_file(writer, peak_list)
